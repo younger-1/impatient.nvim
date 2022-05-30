@@ -118,27 +118,11 @@ local function cprofile(path, name, loader)
   profile(M.chunks, path, name, loader)
 end
 
-local function get_runtime_file(basename, paths)
-  -- Look in the cache to see if we have already loaded a parent module.
-  -- If we have then try looking in the parents directory first.
-  local parents = vim.split(basename, '/')
-  for i = #parents, 1, -1 do
-    local parent = table.concat(vim.list_slice(parents, 1, i), '/')
-    local ppath = M.modpaths:get(parent)
-    if ppath then
-      if ppath:sub(-9) == '/init.lua' then
-        ppath = ppath:sub(1, -10) -- a/b/init.lua -> a/b
-      else
-        ppath = ppath:sub(1, -5)  -- a/b.lua -> a/b
-      end
-
-      for _, path in ipairs(paths) do
-        -- path should be of form 'a/b/c.lua' or 'a/b/c/init.lua'
-        local modpath = ppath..'/'..path:sub(#('lua/'..parent)+2)
-        if fs_stat(modpath) then
-          return modpath, 'cache(p)'
-        end
-      end
+local function get_runtime_file(paths)
+  for _, path in ipairs(paths) do
+    local modpath = api.nvim_get_runtime_file(path, false)[1]
+    if modpath and fs_stat(modpath) then
+      return modpath, 'standard'
     end
   end
 
@@ -159,7 +143,7 @@ local function get_runtime_file_cached(basename, paths)
     mp.dirty = true
   end
 
-  local modpath, loader = get_runtime_file(basename, paths)
+  local modpath, loader = get_runtime_file(paths)
   if modpath then
     mprofile(basename, 'resolve_end', loader)
     log('Creating cache for module %s', basename)
